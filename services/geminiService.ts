@@ -2,8 +2,6 @@
 import { GoogleGenAI, Type, Modality } from "@google/genai";
 import { CulinaryResponse } from "../types";
 
-const getAI = () => new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
-
 const SYSTEM_INSTRUCTION = `
 Ты — лучший мобильный шеф-повар. 
 Твоя задача: проанализировать продукты и выдать ТОЛЬКО JSON с 3 рецептами.
@@ -11,8 +9,12 @@ const SYSTEM_INSTRUCTION = `
 Будь креативным, но реалистичным.
 `;
 
+// Helper to get GoogleGenAI instance with current API key
+const getAi = () => new GoogleGenAI({ apiKey: process.env.API_KEY });
+
 export const analyzeFridge = async (input: string, imageData?: string): Promise<CulinaryResponse | null> => {
-  const ai = getAI();
+  // Always use a new instance to ensure up-to-date API key
+  const ai = getAi();
   const contents: any[] = [{ text: input || "Что можно приготовить из этих продуктов?" }];
   
   if (imageData) {
@@ -58,35 +60,40 @@ export const analyzeFridge = async (input: string, imageData?: string): Promise<
   try {
     const data = JSON.parse(response.text || '{}') as CulinaryResponse;
     
-    // Генерируем изображение для ПЕРВОГО рецепта (чтобы сэкономить время, или для всех)
+    // Генерируем изображения для каждого рецепта
     for (let recipe of data.recipes) {
         recipe.imageUrl = await generateDishImage(recipe.name);
     }
     
     return data;
   } catch (e) {
+    console.error("Parse error:", e);
     return null;
   }
 };
 
 export const generateDishImage = async (dishName: string): Promise<string | undefined> => {
-    const ai = getAI();
+    // Always use a new instance to ensure up-to-date API key
+    const ai = getAi();
     try {
         const response = await ai.models.generateContent({
             model: 'gemini-2.5-flash-image',
-            contents: { parts: [{ text: `Professional food photography of ${dishName}, top view, high quality, appetizing.` }] },
+            contents: { parts: [{ text: `Professional food photography of ${dishName}, soft studio lighting, high resolution, appetizing, 4k.` }] },
             config: { imageConfig: { aspectRatio: "1:1" } }
         });
         
-        const part = response.candidates?.[0]?.content?.parts.find(p => p.inlineData);
-        return part ? `data:image/png;base64,${part.inlineData.data}` : undefined;
-    } catch {
+        // Find the image part by iterating through parts as per guidelines
+        const part = response.candidates?.[0]?.content?.parts?.find(p => p.inlineData);
+        return part?.inlineData ? `data:image/png;base64,${part.inlineData.data}` : undefined;
+    } catch (e) {
+        console.error("Image gen error:", e);
         return undefined;
     }
 };
 
 export const generateSpeech = async (text: string) => {
-  const ai = getAI();
+  // Always use a new instance to ensure up-to-date API key
+  const ai = getAi();
   const response = await ai.models.generateContent({
     model: "gemini-2.5-flash-preview-tts",
     contents: [{ parts: [{ text: text }] }],
@@ -100,6 +107,7 @@ export const generateSpeech = async (text: string) => {
   return response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
 };
 
+// PCM decoding implementation as per guidelines
 export const decodeAudio = (base64: string): Uint8Array => {
   const binaryString = atob(base64);
   const bytes = new Uint8Array(binaryString.length);
@@ -109,6 +117,7 @@ export const decodeAudio = (base64: string): Uint8Array => {
   return bytes;
 };
 
+// PCM decoding implementation as per guidelines
 export const decodeAudioData = async (data: Uint8Array, ctx: AudioContext, sampleRate: number, numChannels: number): Promise<AudioBuffer> => {
   const dataInt16 = new Int16Array(data.buffer);
   const frameCount = dataInt16.length / numChannels;
