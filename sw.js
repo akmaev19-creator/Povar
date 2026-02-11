@@ -1,14 +1,17 @@
 
 const CACHE_NAME = 'chef-v1';
+// Используем относительные пути без точки в начале для лучшей совместимости
 const ASSETS = [
-  './',
-  './index.html',
-  './manifest.json'
+  'index.html',
+  'manifest.json',
+  'https://cdn.tailwindcss.com'
 ];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS))
+    caches.open(CACHE_NAME).then((cache) => {
+      return cache.addAll(ASSETS).catch(err => console.log("Caching failed during install", err));
+    })
   );
 });
 

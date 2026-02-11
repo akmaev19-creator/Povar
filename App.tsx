@@ -14,6 +14,21 @@ const App: React.FC = () => {
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
+
+  // Проверка API ключа при запуске (нужно для GitHub Pages)
+  useEffect(() => {
+    const initKey = async () => {
+      try {
+        if (window.aistudio && !(await window.aistudio.hasSelectedApiKey()) && !process.env.API_KEY) {
+          await window.aistudio.openSelectKey();
+        }
+      } catch (e) {
+        console.error("Ошибка при проверке ключа:", e);
+      }
+    };
+    initKey();
+  }, []);
+
   const loadingPhrases = [
     "Изучаем ваш холодильник...",
     "Шеф-повар точит ножи...",
@@ -42,6 +57,11 @@ const App: React.FC = () => {
   };
 
   const handleAnalyze = async () => {
+    // Если ключа нет, пробуем открыть диалог выбора
+    if (!process.env.API_KEY && window.aistudio) {
+      await window.aistudio.openSelectKey();
+    }
+
     setLoading(true);
     setResult(null);
     try {
@@ -50,8 +70,14 @@ const App: React.FC = () => {
         setResult(data);
         setActiveTab('recipes');
       }
-    } catch (error) {
-      alert("Упс! Что-то пошло не так.");
+    } catch (error: any) {
+      // Если ошибка связана с отсутствием сущности (ключа), сбрасываем состояние
+      if (error?.message?.includes("Requested entity was not found") && window.aistudio) {
+        alert("Пожалуйста, выберите корректный API ключ с оплаченным проектом.");
+        await window.aistudio.openSelectKey();
+      } else {
+        alert("Упс! Не удалось связаться с Шефом. Проверьте интернет или API ключ.");
+      }
     } finally {
       setLoading(false);
     }
@@ -182,13 +208,21 @@ const App: React.FC = () => {
           <div className="p-6 text-center space-y-4">
              <div className="w-24 h-24 bg-orange-100 rounded-full flex items-center justify-center mx-auto text-4xl">⚙️</div>
              <h2 className="text-2xl font-black">Настройки</h2>
-             <p className="text-gray-500">Версия 2.0 (Mobile AI)</p>
+             <p className="text-gray-500">Версия 2.1 (GitHub Optimized)</p>
              <div className="bg-white p-6 rounded-3xl text-left space-y-4 shadow-sm">
-                <div className="flex justify-between items-center font-bold">
+                <button 
+                  onClick={() => window.aistudio?.openSelectKey()}
+                  className="w-full flex justify-between items-center font-bold p-2 hover:bg-gray-50 rounded-xl transition-colors"
+                >
+                    <span>Сменить API Ключ</span>
+                    <span className="text-orange-600">→</span>
+                </button>
+                <div className="flex justify-between items-center font-bold p-2">
                     <span>Голосовой ассистент</span>
                     <div className="w-12 h-6 bg-green-500 rounded-full relative"><div className="absolute right-1 top-1 w-4 h-4 bg-white rounded-full"></div></div>
                 </div>
              </div>
+             <p className="text-[10px] text-gray-400 px-8">Для работы на GitHub Pages необходимо выбрать API ключ из платного проекта в Google AI Studio.</p>
           </div>
         )}
       </main>
@@ -258,7 +292,7 @@ const App: React.FC = () => {
       <nav className="bottom-nav fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-xl border-t border-gray-100 flex justify-around items-center px-6 pt-3 z-30">
         <NavButton active={activeTab === 'scan'} onClick={() => setActiveTab('scan')} icon="📸" label="Сканер" />
         <NavButton active={activeTab === 'recipes'} onClick={() => setActiveTab('recipes')} icon="📖" label="Рецепты" />
-        <NavButton active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} icon="⚙️" label="Профиль" />
+        <NavButton active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} icon="⚙️" label="Настройки" />
       </nav>
     </div>
   );
