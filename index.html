@@ -20,7 +20,7 @@
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
     <script>
-        // Восстанавливаем ключ из памяти браузера
+        // Инициализация process.env для совместимости
         const savedKey = localStorage.getItem('GEMINI_API_KEY') || "";
         window.process = {
             env: {
@@ -74,14 +74,18 @@
 <body>
     <div id="root"></div>
 
-    <!-- Основной скрипт приложения -->
+    <!-- 
+       ВЕСЬ КОД ПРИЛОЖЕНИЯ В ОДНОМ СКРИПТЕ 
+       type="text/babel" позволяет писать JSX/TSX
+       data-type="module" позволяет использовать import из importmap
+    -->
     <script type="text/babel" data-type="module">
         import React, { useState, useRef, useEffect } from 'react';
         import ReactDOM from 'react-dom/client';
         import { GoogleGenAI, Type, Modality } from "@google/genai";
 
         // --- TYPES ---
-        // Интерфейсы нужны только для TypeScript компиляции Babel
+        // Интерфейсы для TypeScript (Babel их игнорирует при выполнении)
         interface Recipe {
           name: string;
           prep_time: number;
@@ -108,7 +112,8 @@
         Будь креативным, но реалистичным.
         `;
 
-        const getAi = () => new GoogleGenAI({ apiKey: process.env.API_KEY });
+        // Получаем экземпляр AI каждый раз заново, чтобы подхватить обновленный ключ
+        const getAi = () => new GoogleGenAI({ apiKey: window.process.env.API_KEY });
 
         const analyzeFridge = async (input: string, imageData?: string): Promise<CulinaryResponse | null> => {
           const ai = getAi();
@@ -156,7 +161,7 @@
 
           try {
             const data = JSON.parse(response.text || '{}') as CulinaryResponse;
-            // Генерируем изображения (параллельно для скорости)
+            // Генерируем изображения параллельно
             await Promise.all(data.recipes.map(async (recipe) => {
                  recipe.imageUrl = await generateDishImage(recipe.name);
             }));
@@ -220,7 +225,7 @@
           return buffer;
         };
 
-        // --- APP COMPONENT ---
+        // --- COMPONENTS ---
 
         const NavButton = ({active, onClick, icon, label}) => (
           <button onClick={onClick} className={`flex flex-col items-center gap-2 transition-all duration-500 ${active ? 'text-orange-600 scale-110' : 'text-gray-300 hover:text-gray-400'}`}>
@@ -241,7 +246,7 @@
           const [loadingPhrase, setLoadingPhrase] = useState("Шеф точит ножи...");
           const [apiKeyInput, setApiKeyInput] = useState('');
           
-          const hasApiKey = !!process.env.API_KEY;
+          const hasApiKey = !!window.process.env.API_KEY;
 
           const fileInputRef = useRef(null);
           const audioContextRef = useRef(null);
@@ -268,6 +273,9 @@
           const handleSaveKey = () => {
               if(apiKeyInput.trim().length > 10) {
                   localStorage.setItem('GEMINI_API_KEY', apiKeyInput.trim());
+                  // Обновляем process.env без перезагрузки страницы
+                  window.process.env.API_KEY = apiKeyInput.trim();
+                  // Перерисовка компонента произойдет из-за изменения состояния или можно форсировать
                   window.location.reload(); 
               } else {
                   alert("Пожалуйста, введите корректный API ключ");
