@@ -10,7 +10,6 @@
     
     <title>Шеф в Кармане</title>
     
-    <!-- Используем относительные пути для работы в подпапках GitHub -->
     <link rel="manifest" href="manifest.json">
     <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/1830/1830839.png">
     
@@ -18,10 +17,10 @@
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;800&display=swap" rel="stylesheet">
     
     <script>
-        // Шим для предотвращения ошибки "process is not defined" на GitHub Pages
+        // Шим для предотвращения ошибки "process is not defined"
         window.process = {
             env: {
-                API_KEY: "" // Будет заменено при сборке или через выбор ключа в приложении
+                API_KEY: "" 
             }
         };
     </script>
@@ -31,12 +30,20 @@
             --safe-top: env(safe-area-inset-top, 0px);
             --safe-bottom: env(safe-area-inset-bottom, 0px);
         }
-        body {
+        /* Убираем белый фон на уровне системы */
+        html, body {
+            background-color: #ea580c; /* Основной оранжевый цвет бренда */
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            width: 100%;
             font-family: 'Manrope', sans-serif;
-            background-color: #ffffff;
             -webkit-tap-highlight-color: transparent;
-            overflow-x: hidden;
-            overscroll-behavior-y: contain;
+            overflow: hidden;
+        }
+        #root {
+            height: 100%;
+            width: 100%;
         }
         .bottom-nav {
             padding-bottom: calc(1rem + var(--safe-bottom));
@@ -62,14 +69,6 @@
 </head>
 <body>
     <div id="root"></div>
-    <script>
-        // Регистрация Service Worker с учетом базового пути
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('./sw.js').catch(err => console.log('SW registration failed:', err));
-            });
-        }
-    </script>
     <script type="module" src="index.tsx"></script>
 </body>
 </html>

@@ -3,21 +3,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { CulinaryResponse, Recipe, Tab } from './types';
 import { analyzeFridge, generateSpeech, decodeAudio, decodeAudioData } from './services/geminiService';
 
-// Define AIStudio interface to match the environment's expectation
-interface AIStudio {
-  hasSelectedApiKey(): Promise<boolean>;
-  openSelectKey(): Promise<void>;
-}
-
-declare global {
-  interface Window {
-    // Use correct type and ensure it matches potential environment modifiers
-    aistudio: AIStudio;
-  }
-}
-
 const App: React.FC = () => {
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const [activeTab, setActiveTab] = useState<Tab>('scan');
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<CulinaryResponse | null>(null);
@@ -25,37 +11,29 @@ const App: React.FC = () => {
   const [textInput, setTextInput] = useState('');
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [loadingPhrase, setLoadingPhrase] = useState("Шеф точит ножи...");
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
 
-  // Проверка наличия ключа при загрузке
-  useEffect(() => {
-    const checkAuth = async () => {
-      if (window.aistudio) {
-        const hasKey = await window.aistudio.hasSelectedApiKey();
-        setIsAuthenticated(hasKey);
-      } else {
-        // Fallback если среда не поддерживает aistudio хелперы
-        setIsAuthenticated(true);
-      }
-    };
-    checkAuth();
-  }, []);
+  const loadingPhrases = [
+    "Шеф точит ножи...",
+    "Изучаем содержимое...",
+    "Спрашиваем у бабушки лучший рецепт...",
+    "Почти готово..."
+  ];
 
-  const handleLogin = async () => {
-    if (window.aistudio) {
-      try {
-        await window.aistudio.openSelectKey();
-        // Сразу считаем успешным согласно правилам (избегаем race condition)
-        setIsAuthenticated(true);
-      } catch (e) {
-        console.error("Auth error:", e);
-      }
-    } else {
-      setIsAuthenticated(true);
+  useEffect(() => {
+    let interval: number;
+    if (loading) {
+      let i = 0;
+      interval = window.setInterval(() => {
+        i = (i + 1) % loadingPhrases.length;
+        setLoadingPhrase(loadingPhrases[i]);
+      }, 2500);
     }
-  };
+    return () => clearInterval(interval);
+  }, [loading]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -77,14 +55,7 @@ const App: React.FC = () => {
       }
     } catch (error: any) {
       console.error("Analysis failed:", error);
-      // Если ключ не валиден или проект не найден
-      if (error?.message?.includes("Requested entity was not found") && window.aistudio) {
-        setIsAuthenticated(false);
-        alert("Ошибка ключа. Пожалуйста, выберите корректный платный проект Google Cloud.");
-        await window.aistudio.openSelectKey();
-      } else {
-        alert("Шеф столкнулся с проблемой. Проверьте ваш интернет или настройки ключа.");
-      }
+      alert("Не удалось связаться с Шефом. Проверьте интернет соединение.");
     } finally {
       setLoading(false);
     }
@@ -108,66 +79,10 @@ const App: React.FC = () => {
         source.start();
       }
     } catch (e) {
-      console.error("Speech error:", e);
+      console.error(e);
       setIsSpeaking(false);
     }
   };
-
-  const loadingPhrases = [
-    "Шеф точит ножи...",
-    "Изучаем содержимое...",
-    "Спрашиваем у бабушки лучший рецепт...",
-    "Почти готово..."
-  ];
-  const [phraseIdx, setPhraseIdx] = useState(0);
-
-  useEffect(() => {
-    let interval: number;
-    if (loading) {
-      interval = window.setInterval(() => {
-        setPhraseIdx(prev => (prev + 1) % loadingPhrases.length);
-      }, 2500);
-    }
-    return () => clearInterval(interval);
-  }, [loading]);
-
-  if (isAuthenticated === null) {
-    return <div className="h-screen w-full flex items-center justify-center bg-white"><div className="w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full animate-spin"></div></div>;
-  }
-
-  // ЭКРАН ВХОДА ЧЕРЕЗ GOOGLE
-  if (!isAuthenticated) {
-    return (
-      <div className="h-screen w-full bg-white flex flex-col items-center justify-center p-10 text-center animate-in fade-in duration-500">
-        <div className="w-32 h-32 bg-orange-50 rounded-[2.5rem] flex items-center justify-center text-6xl shadow-inner mb-8 animate-bounce">🍳</div>
-        <h1 className="text-4xl font-extrabold mb-4 tracking-tight">Шеф в Кармане</h1>
-        <p className="text-gray-500 mb-12 max-w-xs font-medium leading-relaxed">
-          Чтобы пользоваться вашим личным AI-кулинаром, подключите свой Google аккаунт.
-        </p>
-        
-        <button 
-          onClick={handleLogin}
-          className="w-full max-w-sm py-5 bg-black text-white rounded-[2rem] flex items-center justify-center gap-4 hover:opacity-90 active:scale-95 transition-all shadow-2xl mb-6"
-        >
-          <img src="https://cdn-icons-png.flaticon.com/512/2991/2991148.png" className="w-6 h-6" alt="Google" />
-          <span className="font-bold text-lg">Войти через Google</span>
-        </button>
-
-        <div className="space-y-4">
-            <a 
-              href="https://ai.google.dev/gemini-api/docs/billing" 
-              target="_blank" 
-              className="text-[11px] text-orange-600 font-bold uppercase tracking-widest block"
-            >
-              Как подключить свой ключ?
-            </a>
-            <p className="text-[10px] text-gray-300 max-w-[200px] mx-auto uppercase font-bold tracking-tighter">
-              Приложение использует ваши персональные ресурсы Gemini для генерации контента.
-            </p>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="flex flex-col h-screen bg-gray-50 text-gray-900 overflow-hidden font-sans selection:bg-orange-100">
@@ -178,7 +93,7 @@ const App: React.FC = () => {
         </h1>
         <div className="flex items-center gap-2 px-3 py-1 bg-green-50 rounded-full">
            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-           <span className="text-[9px] font-black text-green-700 uppercase tracking-widest">Active</span>
+           <span className="text-[9px] font-black text-green-700 uppercase tracking-widest">Ready</span>
         </div>
       </header>
 
@@ -188,7 +103,7 @@ const App: React.FC = () => {
           <div className="p-6 space-y-8 animate-in fade-in slide-in-from-bottom-6 duration-700">
             <div className="text-center space-y-2">
               <h2 className="text-4xl font-black tracking-tight">Что у нас есть?</h2>
-              <p className="text-gray-400 font-bold uppercase text-[10px] tracking-[0.2em]">Просканируй холодильник</p>
+              <p className="text-gray-400 font-bold uppercase text-[10px] tracking-[0.2em]">Просканируй продукты</p>
             </div>
 
             <div 
@@ -281,19 +196,16 @@ const App: React.FC = () => {
              <div className="bg-white p-10 rounded-[4rem] shadow-xl shadow-gray-200/50 text-center border border-gray-50">
                 <div className="w-24 h-24 bg-green-50 text-green-500 rounded-full flex items-center justify-center mx-auto mb-6 text-4xl shadow-inner animate-pulse">🥗</div>
                 <h2 className="text-3xl font-black tracking-tight">Шеф активен</h2>
-                <p className="text-gray-400 text-[10px] font-black uppercase tracking-[0.2em] mt-2">Connected via Google AI</p>
+                <p className="text-gray-400 text-[10px] font-black uppercase tracking-[0.2em] mt-2">v 1.2.0</p>
              </div>
 
              <div className="bg-white rounded-[3rem] overflow-hidden shadow-xl shadow-gray-200/50 border border-gray-50">
-                <button 
-                  onClick={handleLogin}
-                  className="w-full flex justify-between items-center font-black p-8 hover:bg-gray-50 active:bg-gray-100 transition-colors border-b border-gray-50"
-                >
-                    <span className="text-gray-800 tracking-tight">Сменить Google Ключ</span>
-                    <span className="text-orange-600 text-xl">→</span>
-                </button>
+                <div className="flex justify-between items-center font-black p-8 border-b border-gray-50">
+                    <span className="text-gray-800 tracking-tight">Язык</span>
+                    <span className="text-gray-400 text-sm">Русский</span>
+                </div>
                 <div className="flex justify-between items-center font-black p-8">
-                    <span className="text-gray-800 tracking-tight">Голос Шефа (Kore)</span>
+                    <span className="text-gray-800 tracking-tight">Голос (Kore)</span>
                     <div className="w-14 h-8 bg-orange-600 rounded-full relative shadow-inner">
                       <div className="absolute right-1 top-1 w-6 h-6 bg-white rounded-full shadow-lg"></div>
                     </div>
@@ -301,22 +213,22 @@ const App: React.FC = () => {
              </div>
 
              <p className="text-center px-8 text-[9px] text-gray-300 font-bold leading-relaxed uppercase tracking-[0.1em]">
-               Безопасность: Мы не храним ваши ключи. Авторизация происходит напрямую через Google AI Studio API.
+               Шеф в кармане
              </p>
           </div>
         )}
       </main>
 
-      {/* Loading */}
+      {/* Loading Overlay */}
       {loading && (
-        <div className="fixed inset-0 z-50 bg-white/95 backdrop-blur-3xl flex flex-col items-center justify-center p-12 text-center space-y-10 animate-in fade-in duration-500">
+        <div className="fixed inset-0 z-50 bg-[#ea580c]/95 backdrop-blur-3xl flex flex-col items-center justify-center p-12 text-center space-y-10 animate-in fade-in duration-500">
           <div className="relative">
-             <div className="w-48 h-48 border-[12px] border-orange-50 border-t-orange-600 rounded-full animate-spin"></div>
+             <div className="w-48 h-48 border-[12px] border-white/10 border-t-white rounded-full animate-spin"></div>
              <div className="absolute inset-0 flex items-center justify-center text-6xl animate-bounce">🥕</div>
           </div>
-          <div className="space-y-4">
-            <h3 className="text-4xl font-black text-orange-600 tracking-tighter uppercase">Творим магию</h3>
-            <p className="text-gray-400 font-black text-[10px] uppercase tracking-[0.3em] transition-all duration-700">{loadingPhrases[phraseIdx]}</p>
+          <div className="space-y-2">
+            <h3 className="text-3xl font-black text-white tracking-tighter uppercase">Шеф готовит...</h3>
+            <p className="text-orange-100 font-bold text-xs uppercase tracking-widest animate-pulse">{loadingPhrase}</p>
           </div>
         </div>
       )}
@@ -344,7 +256,7 @@ const App: React.FC = () => {
                    <h4 className="font-black text-gray-300 uppercase text-[11px] tracking-[0.4em]">Ингредиенты</h4>
                    <div className="grid grid-cols-1 gap-4">
                       {selectedRecipe.ingredients.map((ing, i) => (
-                        <div key={i} className="flex items-center gap-5 bg-gray-50 p-6 rounded-[2rem] border border-gray-100/50 shadow-sm transition-transform hover:translate-x-1">
+                        <div key={i} className="flex items-center gap-5 bg-gray-50 p-6 rounded-[2rem] border border-gray-100/50 shadow-sm">
                            <div className="w-3 h-3 bg-orange-500 rounded-full shadow-lg shadow-orange-500/50"></div>
                            <span className="font-black text-gray-800 tracking-tight">{ing}</span>
                         </div>
