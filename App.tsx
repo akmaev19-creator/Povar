@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { CulinaryResponse, Recipe, Tab } from './types';
-import { analyzeFridge, generateSpeech, decodeAudio, decodeAudioData } from './services/geminiService';
+import { CulinaryResponse, Recipe, Tab } from './types.ts'; // Добавлено расширение .ts
+import { analyzeFridge, generateSpeech, decodeAudio, decodeAudioData } from './services/geminiService.ts'; // Добавлено расширение .ts
 
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<Tab>('scan');
@@ -12,7 +12,11 @@ const App: React.FC = () => {
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [loadingPhrase, setLoadingPhrase] = useState("Шеф точит ножи...");
+  const [apiKeyInput, setApiKeyInput] = useState('');
   
+  // Проверяем наличие ключа в shim process.env (который берется из localStorage в index.html)
+  const hasApiKey = !!process.env.API_KEY;
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
 
@@ -35,6 +39,22 @@ const App: React.FC = () => {
     return () => clearInterval(interval);
   }, [loading]);
 
+  const handleSaveKey = () => {
+      if(apiKeyInput.trim().length > 10) {
+          localStorage.setItem('GEMINI_API_KEY', apiKeyInput.trim());
+          window.location.reload(); // Перезагрузка для применения ключа в index.html
+      } else {
+          alert("Пожалуйста, введите корректный API ключ");
+      }
+  };
+
+  const handleResetKey = () => {
+      if(confirm("Сбросить ключ API?")) {
+          localStorage.removeItem('GEMINI_API_KEY');
+          window.location.reload();
+      }
+  }
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -55,7 +75,7 @@ const App: React.FC = () => {
       }
     } catch (error: any) {
       console.error("Analysis failed:", error);
-      alert("Не удалось связаться с Шефом. Проверьте интернет соединение.");
+      alert("Ошибка. Проверьте ключ API или интернет.");
     } finally {
       setLoading(false);
     }
@@ -83,6 +103,36 @@ const App: React.FC = () => {
       setIsSpeaking(false);
     }
   };
+
+  // ЭКРАН ВВОДА КЛЮЧА (Если ключа нет)
+  if (!hasApiKey) {
+      return (
+        <div className="h-screen w-full bg-[#ea580c] flex flex-col items-center justify-center p-10 text-center animate-in fade-in duration-500">
+            <div className="w-24 h-24 bg-white/20 backdrop-blur rounded-full flex items-center justify-center text-5xl mb-8 shadow-xl">🔑</div>
+            <h1 className="text-3xl font-black text-white mb-2">Настройка Шефа</h1>
+            <p className="text-orange-100 mb-8 text-sm font-medium">Для работы на этом сайте нужен ваш API ключ Gemini.</p>
+            
+            <input 
+                type="text" 
+                value={apiKeyInput}
+                onChange={(e) => setApiKeyInput(e.target.value)}
+                placeholder="Вставьте API Key сюда"
+                className="w-full max-w-sm p-4 rounded-2xl bg-white/90 text-gray-800 font-bold placeholder:text-gray-400 mb-4 shadow-lg focus:outline-none focus:ring-4 focus:ring-white/30"
+            />
+            
+            <button 
+                onClick={handleSaveKey}
+                className="w-full max-w-sm py-4 bg-black text-white rounded-2xl font-black text-lg shadow-2xl active:scale-95 transition-all"
+            >
+                СОХРАНИТЬ
+            </button>
+            
+            <a href="https://aistudio.google.com/app/apikey" target="_blank" className="mt-8 text-xs text-orange-200 font-bold underline decoration-orange-300">
+                Получить ключ в Google AI Studio
+            </a>
+        </div>
+      );
+  }
 
   return (
     <div className="flex flex-col h-screen bg-gray-50 text-gray-900 overflow-hidden font-sans selection:bg-orange-100">
@@ -196,14 +246,14 @@ const App: React.FC = () => {
              <div className="bg-white p-10 rounded-[4rem] shadow-xl shadow-gray-200/50 text-center border border-gray-50">
                 <div className="w-24 h-24 bg-green-50 text-green-500 rounded-full flex items-center justify-center mx-auto mb-6 text-4xl shadow-inner animate-pulse">🥗</div>
                 <h2 className="text-3xl font-black tracking-tight">Шеф активен</h2>
-                <p className="text-gray-400 text-[10px] font-black uppercase tracking-[0.2em] mt-2">v 1.2.0</p>
+                <p className="text-gray-400 text-[10px] font-black uppercase tracking-[0.2em] mt-2">v 1.2.0 (Yandex Edition)</p>
              </div>
 
              <div className="bg-white rounded-[3rem] overflow-hidden shadow-xl shadow-gray-200/50 border border-gray-50">
-                <div className="flex justify-between items-center font-black p-8 border-b border-gray-50">
-                    <span className="text-gray-800 tracking-tight">Язык</span>
-                    <span className="text-gray-400 text-sm">Русский</span>
-                </div>
+                <button onClick={handleResetKey} className="w-full flex justify-between items-center font-black p-8 border-b border-gray-50 hover:bg-gray-50 transition-colors">
+                    <span className="text-gray-800 tracking-tight">Сбросить Ключ API</span>
+                    <span className="text-red-500 text-sm">✕</span>
+                </button>
                 <div className="flex justify-between items-center font-black p-8">
                     <span className="text-gray-800 tracking-tight">Голос (Kore)</span>
                     <div className="w-14 h-8 bg-orange-600 rounded-full relative shadow-inner">
@@ -213,7 +263,7 @@ const App: React.FC = () => {
              </div>
 
              <p className="text-center px-8 text-[9px] text-gray-300 font-bold leading-relaxed uppercase tracking-[0.1em]">
-               Шеф в кармане
+               Ключ хранится локально в вашем браузере.
              </p>
           </div>
         )}

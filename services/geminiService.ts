@@ -1,6 +1,6 @@
 
 import { GoogleGenAI, Type, Modality } from "@google/genai";
-import { CulinaryResponse } from "../types";
+import { CulinaryResponse } from "../types.ts"; // Добавлено расширение .ts
 
 const SYSTEM_INSTRUCTION = `
 Ты — лучший мобильный шеф-повар. 

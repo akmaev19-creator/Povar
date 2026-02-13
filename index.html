@@ -16,11 +16,16 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;800&display=swap" rel="stylesheet">
     
+    <!-- Babel для компиляции TSX прямо в браузере -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
     <script>
-        // Шим для предотвращения ошибки "process is not defined"
+        // Восстанавливаем ключ из памяти браузера, если он там есть
+        const savedKey = localStorage.getItem('GEMINI_API_KEY') || "";
+        
         window.process = {
             env: {
-                API_KEY: "" 
+                API_KEY: savedKey
             }
         };
     </script>
@@ -30,9 +35,8 @@
             --safe-top: env(safe-area-inset-top, 0px);
             --safe-bottom: env(safe-area-inset-bottom, 0px);
         }
-        /* Убираем белый фон на уровне системы */
         html, body {
-            background-color: #ea580c; /* Основной оранжевый цвет бренда */
+            background-color: #ea580c;
             margin: 0;
             padding: 0;
             height: 100%;
@@ -57,18 +61,20 @@
     </style>
 
     <script type="importmap">
-    {
-      "imports": {
-        "@google/genai": "https://esm.sh/@google/genai@^1.40.0",
-        "react/": "https://esm.sh/react@^19.2.4/",
-        "react": "https://esm.sh/react@^19.2.4",
-        "react-dom/": "https://esm.sh/react-dom@^19.2.4/"
-      }
-    }
-    </script>
+{
+  "imports": {
+    "@google/genai": "https://esm.sh/@google/genai@^1.40.0",
+    "react": "https://esm.sh/react@^19.2.4",
+    "react-dom/client": "https://esm.sh/react-dom@^19.2.4/client",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
+    "react/": "https://esm.sh/react@^19.2.4/"
+  }
+}
+</script>
 </head>
 <body>
     <div id="root"></div>
-    <script type="module" src="index.tsx"></script>
+    <!-- Важно: type="text/babel" и data-type="module" для работы импортов -->
+    <script type="text/babel" data-type="module" src="index.tsx"></script>
 </body>
 </html>
